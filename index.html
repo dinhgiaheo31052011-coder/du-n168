@@ -151,10 +151,39 @@
       padding: 15px;
     }
 
+    /* Khung mã QR hướng dẫn ở góc trên */
+    .qr-container {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      background: rgba(18, 22, 32, 0.9);
+      border: 2px solid #ffd700;
+      border-radius: 12px;
+      padding: 6px 10px;
+      text-align: center;
+      z-index: 10;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+    }
+
+    .qr-container img {
+      width: 55px;
+      height: 55px;
+      border-radius: 4px;
+      display: block;
+      margin: 0 auto 3px auto;
+    }
+
+    .qr-container span {
+      font-size: 9px;
+      color: #fff3a3;
+      font-weight: 700;
+    }
+
     .top-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding-right: 90px; /* Chừa chỗ cho khung QR */
     }
 
     .brand-title {
@@ -536,33 +565,6 @@
       width: 100%;
       height: 160px;
     }
-    /* Khung chứa mã QR hướng dẫn */
-    .qr-container {
-      position: absolute;
-      top: 15px;
-      right: 20px;
-      background: rgba(18, 22, 32, 0.9);
-      border: 2px solid #ffd700;
-      border-radius: 12px;
-      padding: 8px;
-      text-align: center;
-      z-index: 10;
-      box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-    }
-
-    .qr-container img {
-      width: 75px;
-      height: 75px;
-      border-radius: 6px;
-      display: block;
-      margin: 0 auto 4px auto;
-    }
-
-    .qr-container span {
-      font-size: 10px;
-      color: #fff3a3;
-      font-weight: 700;
-    }
   </style>
 </head>
 <body>
@@ -584,11 +586,13 @@
   <!-- Khung Game Chính -->
   <div class="game-container">
     <div class="content-layer">
+      
       <!-- Khung mã QR hướng dẫn -->
       <div class="qr-container">
         <img src="qrcode.png" alt="QR Hướng Dẫn">
-        <span>Mã Nạp Tiền</span>
+        <span>QR Hướng Dẫn</span>
       </div>
+
       <!-- Top Bar -->
       <div class="top-bar">
         <div class="brand-title">F168 CASINO VIP</div>
@@ -678,11 +682,11 @@
     let selectedChipValue = 7;
     let isAllInSelected = false;
     let currentBetChoice = null;
-    let currentBetAmount = 0;
+    let currentBetTai = 0;
+    let currentBetXiu = 0;
     let timerVal = 10;
     let gameInterval = null;
     
-    // Dữ liệu lịch sử 18 phiên mẫu
     let historyData = [14, 9, 11, 10, 12, 8, 11, 9, 11, 8, 13, 8, 12, 5, 11, 9, 11, 7];
 
     const diceLayouts = {
@@ -769,13 +773,23 @@
         }
       }
 
+      // Đã chọn đánh bên này rồi thì không được đổi sang bên kia trong cùng một phiên
+      if (currentBetChoice && currentBetChoice !== choice) {
+        alert('Mỗi phiên bạn chỉ được đặt 1 cửa (Tài hoặc Xỉu)!');
+        return;
+      }
+
       currentBetChoice = choice;
-      currentBetAmount += betAmountThisTime;
       currentUser.balance -= betAmountThisTime;
       updateBalanceDisplay();
       
-      if (choice === 'TAI') document.getElementById('taiBetVal').innerText = currentBetAmount.toLocaleString();
-      else document.getElementById('xiuBetVal').innerText = currentBetAmount.toLocaleString();
+      if (choice === 'TAI') {
+        currentBetTai += betAmountThisTime;
+        document.getElementById('taiBetVal').innerText = currentBetTai.toLocaleString();
+      } else {
+        currentBetXiu += betAmountThisTime;
+        document.getElementById('xiuBetVal').innerText = currentBetXiu.toLocaleString();
+      }
     }
 
     function renderDice(diceId, val) {
@@ -816,17 +830,21 @@
           updateHistoryBar();
 
           if (currentBetChoice) {
-            if (currentBetChoice === result) {
-              const winAmt = Math.floor(currentBetAmount * 1.985);
-              currentUser.balance += winAmt;
-              alert(`KẾT QUẢ: ${total} (${result})\nBạn ĐÃ THẮNG ${winAmt.toLocaleString()} VNĐ!`);
-            } else {
-              alert(`KẾT QUẢ: ${total} (${result})\nRất tiếc! Bạn đã thua ${currentBetAmount.toLocaleString()} VNĐ.`);
+            let totalMyBet = currentBetChoice === 'TAI' ? currentBetTai : currentBetXiu;
+            if (totalMyBet > 0) {
+              if (currentBetChoice === result) {
+                const winAmt = Math.floor(totalMyBet * 1.985);
+                currentUser.balance += winAmt;
+                alert(`KẾT QUẢ: ${total} (${result})\nBạn ĐÃ THẮNG ${winAmt.toLocaleString()} VNĐ!`);
+              } else {
+                alert(`KẾT QUẢ: ${total} (${result})\nRất tiếc! Bạn đã thua ${totalMyBet.toLocaleString()} VNĐ.`);
+              }
             }
           }
 
           currentBetChoice = null;
-          currentBetAmount = 0;
+          currentBetTai = 0;
+          currentBetXiu = 0;
           document.getElementById('taiBetVal').innerText = '0';
           document.getElementById('xiuBetVal').innerText = '0';
           updateBalanceDisplay();
@@ -858,14 +876,12 @@
     }
 
     function renderF168Chart() {
-      // Tính % Tài Xỉu
       let taiCount = historyData.filter(v => v >= 11).length;
       let xiuCount = historyData.length - taiCount;
       let taiPct = Math.round((taiCount / historyData.length) * 100);
       let xiuPct = 100 - taiPct;
       document.getElementById('chartStats').innerText = `Tài: ${taiPct}% Xỉu: ${xiuPct}% Bão: 0%`;
 
-      // 1. Lưới trên điểm số
       const topGrid = document.getElementById('topGrid');
       topGrid.innerHTML = '';
       for (let r = 0; r < 5; r++) {
@@ -883,7 +899,6 @@
         }
       }
 
-      // 2. Lưới dưới giọt nước
       const bottomLeftGrid = document.getElementById('bottomLeftGrid');
       bottomLeftGrid.innerHTML = '';
       for (let r = 0; r < 6; r++) {
@@ -904,14 +919,12 @@
         }
       }
 
-      // 3. Đồ thị Canvas
       const canvas = document.getElementById('chartCanvas');
       const ctx = canvas.getContext('2d');
       canvas.width = 440;
       canvas.height = 160;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Lưới trục Y (18, 15, 12, 9, 6, 3)
       ctx.strokeStyle = '#2a1e15';
       ctx.lineWidth = 1;
       for (let i = 0; i <= 5; i++) {
@@ -926,7 +939,6 @@
         ctx.fillText(18 - i * 3, 5, y - 2);
       }
 
-      // Vẽ đường gấp khúc
       const stepX = canvas.width / (historyData.length - 1 || 1);
       ctx.beginPath();
       ctx.strokeStyle = '#ffd700';
@@ -940,7 +952,6 @@
       });
       ctx.stroke();
 
-      // Vẽ các nút tròn
       historyData.forEach((val, idx) => {
         let y = 150 - ((val - 3) / 15) * 140;
         let x = idx * stepX;
